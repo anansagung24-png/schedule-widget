@@ -11,9 +11,10 @@
 <meta name="theme-color" content="#E2DBDD">
 <meta name="color-scheme" content="light">
 <!-- Elegant title font. If you're offline it quietly falls back to a font already on Windows. -->
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   html, body { height:100%; }
+  [hidden] { display:none !important; }
   body {
     margin:0; color:#4A4A55; font-family:"Segoe UI",Arial,sans-serif; font-size:13px;
     display:flex; flex-direction:column; overflow:hidden;
@@ -33,19 +34,27 @@
      You can drag the window by this strip (and by the big title). */
   .dragbar { display:none; }
   body.wco .dragbar {
-    display:flex; align-items:center; box-sizing:border-box;
+    display:flex; align-items:center; box-sizing:border-box; position:relative; z-index:2;
     height:env(titlebar-area-height, 33px); width:env(titlebar-area-width, 100%);
     padding-left:calc(env(titlebar-area-x, 0px) + 14px);
     font-size:15px; font-weight:600; color:#6F8794; white-space:nowrap;
     app-region:drag; -webkit-app-region:drag;
   }
-  body.wco .row.title { app-region:drag; -webkit-app-region:drag; }
+  body.pg-progress .dragbar { color:#FFFFFF; text-shadow:0 1px 6px rgba(70,80,130,0.6); }
+  body.wco .row.title, body.wco .tabsRow, body.wco #pageProgress header { app-region:drag; -webkit-app-region:drag; }
   body.wco .row.title #clock { display:none; }
   body.wco .bar { padding-top:0; }
   button, input, a, label { app-region:no-drag; -webkit-app-region:no-drag; }
 
+  /* ---- Schedule / Progress switch ---- */
+  .tabsRow { display:flex; justify-content:center; padding:8px 12px 0; position:relative; z-index:2; }
+  .tabs { display:flex; }
+  .tabs button { border-radius:0; padding:3px 14px; }
+  .tabs button:first-child { border-radius:16px 0 0 16px; border-right:0; }
+  .tabs button:last-child  { border-radius:0 16px 16px 0; }
+
   /* ---- top bar ---- */
-  .bar { padding:10px 12px 8px; }
+  .bar { padding:8px 12px 8px; }
   .row { display:flex; align-items:center; gap:8px; }
   .row + .row { margin-top:6px; }
   h1 { margin:0; flex:1; min-width:0; font-weight:500; font-size:28px; letter-spacing:0.5px; color:#5B8399;
@@ -56,13 +65,14 @@
            padding:3px 9px; cursor:pointer; }
   button:hover { background:#FBF3EC; }
   button:focus-visible, input:focus-visible { outline:2px solid #5B8399; outline-offset:1px; }
-  button.on { background:#5B8399; color:#fff; }
+  button.on { background:#5B8399; color:#fff; border-color:#5B8399; }
   .seg { display:flex; }
   .seg button { border-radius:0; }
   .seg button:first-child { border-radius:6px 0 0 6px; border-right:0; }
   .seg button:last-child  { border-radius:0 6px 6px 0; }
 
-  /* ---- table ---- */
+  /* ---- schedule page ---- */
+  #pageSchedule { flex:1; min-height:0; display:flex; flex-direction:column; }
   .scroll { flex:1; min-height:0; overflow:auto; padding:0 12px; }
   table { width:100%; height:100%; border-collapse:collapse; table-layout:fixed; border:4px solid #A49FB0; }
   table.week { min-width:900px; }
@@ -93,46 +103,253 @@
 
   #status { padding:6px 14px 8px; font-size:12px; color:#5F7480; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
+  /* ---- progress page ---- */
+  #pageProgress { flex:1; min-height:0; overflow:auto; position:relative; color:#3F4A5C; }
+  .sky { position:fixed; inset:0; width:100%; height:100%; z-index:0; pointer-events:none; }
+  #pageProgress main { position:relative; z-index:1; max-width:460px; margin:0 auto; padding:6px 12px 24px; }
+  #pageProgress header { text-align:center; margin-bottom:8px; }
+  #pageProgress header h1 { flex:none; font-size:32px; color:#fff; text-shadow:0 1px 8px rgba(80,90,140,0.45); }
+  .weekRange { color:#fff; font-size:14px; text-shadow:0 1px 6px rgba(80,90,140,0.5); }
+  .card { position:relative; background:rgba(251,246,241,0.86); border:2px solid rgba(164,159,176,0.65); border-radius:16px;
+          padding:12px 14px; margin-bottom:12px; backdrop-filter:blur(3px); }
+  .card h2 { margin:0 0 8px; font-weight:600; font-size:21px; color:#5B8399; }
+  .muted { color:#7A8796; font-size:12px; }
+
+  .flight { background:rgba(255,255,255,0.20); border-color:rgba(255,255,255,0.7); padding-bottom:4px; }
+  #pct { font-size:42px; font-weight:600; color:#fff; line-height:1; text-shadow:0 1px 10px rgba(70,80,130,0.5); }
+  #count { color:#fff; font-size:14px; text-shadow:0 1px 6px rgba(70,80,130,0.6); }
+  #flightSvg { width:100%; height:auto; display:block; overflow:visible; }
+
+  .tiercard { text-align:center; overflow:hidden; }
+  #badgeWrap { height:176px; display:flex; align-items:center; justify-content:center; }
+  #tierName { font-weight:700; line-height:1.1; }
+  #tierName.epic { letter-spacing:2px; background:linear-gradient(90deg,#E78AB0,#8E7CC3,#5FA8D3,#4FB8A4,#E0A93B);
+                   -webkit-background-clip:text; background-clip:text; color:transparent; }
+  #hint { margin:4px 0 4px; color:#6B7686; }
+  .toast { position:absolute; left:50%; top:14px; transform:translateX(-50%); font-weight:700; font-size:20px; color:#fff;
+           background:#5B8399; padding:3px 14px; border-radius:20px; opacity:0; pointer-events:none; white-space:nowrap; }
+  .toast.show { animation:toast 1.6s ease-out; }
+  @keyframes toast { 0%{opacity:0; transform:translate(-50%,10px);} 15%{opacity:1; transform:translate(-50%,0);} 75%{opacity:1;} 100%{opacity:0; transform:translate(-50%,-14px);} }
+  .pop { animation:pop 0.7s cubic-bezier(.2,1.7,.4,1); }
+  @keyframes pop { 0%{transform:scale(0.4);} 100%{transform:scale(1);} }
+
+  /* moving parts: only the top 3 badges move */
+  .spin    { animation:spin 9s linear infinite; transform-box:view-box; transform-origin:0 0; }
+  .spinR   { animation:spin 14s linear infinite reverse; transform-box:view-box; transform-origin:0 0; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .twinkle { animation:twinkle 1.6s ease-in-out infinite; transform-box:fill-box; transform-origin:center; }
+  @keyframes twinkle { 0%,100%{opacity:0.2; transform:scale(0.5);} 50%{opacity:1; transform:scale(1.2);} }
+  .float   { animation:float 2.6s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-5px);} }
+  .glow    { animation:glow 2.2s ease-in-out infinite; }
+  @keyframes glow { 0%,100%{filter:drop-shadow(0 0 4px rgba(255,205,90,0.6));} 50%{filter:drop-shadow(0 0 14px rgba(255,205,90,1));} }
+  .glowP   { animation:glowP 2.2s ease-in-out infinite; }
+  @keyframes glowP { 0%,100%{filter:drop-shadow(0 0 6px rgba(190,150,255,0.7));} 50%{filter:drop-shadow(0 0 18px rgba(120,210,230,1));} }
+
+  .task { display:flex; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px solid rgba(164,159,176,0.35); cursor:pointer; font-size:14px; position:relative; }
+  .task:last-child { border-bottom:0; }
+  .task input { position:absolute; opacity:0; width:1px; height:1px; }
+  .box { width:20px; height:20px; border:2px solid #A49FB0; border-radius:6px; background:#fff; flex:none;
+         display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; }
+  .task input:checked + .box { background:#5B8399; border-color:#5B8399; }
+  .task input:checked + .box::after { content:"\2713"; }
+  .task input:focus-visible + .box { outline:2px solid #5B8399; outline-offset:2px; }
+  .task input:checked ~ .name { color:#8A93A0; text-decoration:line-through; }
+  .task .name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .times { margin-left:auto; color:#9AA3AE; font-size:12px; }
+
+  .seg2 { display:flex; }
+  .seg2 button { font-size:12px; padding:2px 10px; }
+  .seg2 button:first-child { border-radius:14px 0 0 14px; border-right:0; }
+  .seg2 button:last-child  { border-radius:0 14px 14px 0; }
+  .wk { display:flex; align-items:center; gap:10px; padding:5px 4px; border-bottom:1px solid rgba(164,159,176,0.35); }
+  .wk:last-child { border-bottom:0; }
+  .wk.thisweek { background:rgba(255,255,255,0.65); border-radius:8px; }
+  .wk .pos { width:16px; text-align:right; color:#9AA3AE; font-size:12px; }
+  .wk .tier { font-weight:700; font-size:17px; line-height:1.1; }
+  .wk .when { font-size:12px; color:#7A8796; }
+  .wk .right { margin-left:auto; text-align:right; font-size:12px; color:#7A8796; white-space:nowrap; }
+  .rank { display:flex; align-items:center; gap:8px; padding:3px 0; }
+  .rank .n { width:18px; color:#9AA3AE; text-align:right; flex:none; }
+  .rank .nm { width:120px; flex:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rank .bar2 { height:8px; border-radius:4px; background:#BCD9D9; }
+
   /* ---- settings panel ---- */
-  #panel { position:fixed; inset:0; background:rgba(243,238,234,0.97); overflow:auto; padding:16px 18px; display:none; }
+  #panel { position:fixed; inset:0; z-index:10; background:rgba(243,238,234,0.97); overflow:auto; padding:16px 18px; display:none; }
   #panel.open { display:block; }
   body.wco #panel { padding-top:calc(env(titlebar-area-height, 33px) + 10px); }
   #panel h2 { margin:0 0 10px; font-weight:600; font-size:24px; color:#5B8399; }
   #panel label.opt { display:block; margin:8px 0; padding:8px 10px; background:#F4E9E0; border:2px solid #A49FB0; border-radius:8px; cursor:pointer; }
   #panel label.opt b { color:#3F6B82; }
-  #panel .box { margin:8px 0 0 4px; }
+  #panel .box2 { margin:8px 0 0 4px; }
   #panel ol { margin:6px 0 8px; padding-left:20px; line-height:1.5; }
   #panel input[type=text] { width:100%; box-sizing:border-box; font:inherit; padding:6px 8px; margin:3px 0 8px;
                             border:2px solid #A49FB0; border-radius:6px; background:#fff; color:#4A4A55; }
   #panelMsg { margin:8px 0; color:#B4232A; min-height:1.2em; }
   a { color:#3F6B82; }
+
+  @media (prefers-reduced-motion: reduce) { .spin,.spinR,.twinkle,.float,.glow,.glowP,.pop,.now { animation:none; } }
 </style>
 </head>
 <body>
 
 <div class="dragbar serif" id="clock2"></div>
 
-<div class="bar">
-  <div class="row title">
-    <h1 class="serif" id="title">Schedule</h1>
-    <div class="serif" id="clock"></div>
-  </div>
-  <div class="row">
-    <span id="dayNav" class="row">
-      <button id="prev" title="Previous day" aria-label="Previous day">&#8249;</button>
-      <button id="today">Today</button>
-      <button id="next" title="Next day" aria-label="Next day">&#8250;</button>
-    </span>
-    <span class="spacer"></span>
-    <span class="seg">
-      <button id="vDay">Day</button><button id="vWeek">Week</button>
-    </span>
-    <button id="gear" title="Settings" aria-label="Settings">&#9881;</button>
-  </div>
+<div class="tabsRow">
+  <nav class="tabs" aria-label="Pages">
+    <button type="button" id="tabSchedule">Schedule</button><button type="button" id="tabProgress">Progress</button>
+  </nav>
 </div>
 
-<div class="scroll"><table id="grid"></table></div>
-<div id="status"></div>
+<!-- ===================== PAGE 1: SCHEDULE ===================== -->
+<div id="pageSchedule">
+  <div class="bar">
+    <div class="row title">
+      <h1 class="serif" id="title">Schedule</h1>
+      <div class="serif" id="clock"></div>
+    </div>
+    <div class="row">
+      <span id="dayNav" class="row">
+        <button id="prev" title="Previous day" aria-label="Previous day">&#8249;</button>
+        <button id="today">Today</button>
+        <button id="next" title="Next day" aria-label="Next day">&#8250;</button>
+      </span>
+      <span class="spacer"></span>
+      <span class="seg">
+        <button id="vDay">Day</button><button id="vWeek">Week</button>
+      </span>
+      <button id="gear" title="Settings" aria-label="Settings">&#9881;</button>
+    </div>
+  </div>
+  <div class="scroll"><table id="grid"></table></div>
+  <div id="status"></div>
+</div>
+
+<!-- ===================== PAGE 2: PROGRESS ===================== -->
+<div id="pageProgress" hidden>
+  <!-- Painted sky (my own painting) -->
+  <svg class="sky" viewBox="0 0 400 800" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <linearGradient id="skyG" x1="0" y1="0" x2="0.3" y2="1">
+        <stop offset="0"    stop-color="#8E95BE"/>
+        <stop offset="0.25" stop-color="#B4A6CC"/>
+        <stop offset="0.48" stop-color="#EFC0CC"/>
+        <stop offset="0.70" stop-color="#C3DCF0"/>
+        <stop offset="0.88" stop-color="#9AD8D6"/>
+        <stop offset="1"    stop-color="#6FC7C4"/>
+      </linearGradient>
+      <filter id="paint" x="-30%" y="-30%" width="160%" height="160%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.016" numOctaves="4" seed="11" result="n"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="b"/>
+        <feDisplacementMap in="b" in2="n" scale="55" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="dapple" x="-20%" y="-40%" width="140%" height="180%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.08" numOctaves="3" seed="4" result="n"/>
+        <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="b"/>
+        <feDisplacementMap in="b" in2="n" scale="22" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+    </defs>
+    <rect width="400" height="800" fill="url(#skyG)"/>
+    <g filter="url(#paint)">
+      <ellipse cx="60"  cy="70"  rx="110" ry="40" fill="#6F78A8" opacity="0.55"/>
+      <ellipse cx="320" cy="60"  rx="100" ry="36" fill="#A99BC8" opacity="0.6"/>
+      <ellipse cx="300" cy="150" rx="120" ry="50" fill="#F6C9D2" opacity="0.85"/>
+      <ellipse cx="90"  cy="200" rx="110" ry="46" fill="#C98FA8" opacity="0.45"/>
+      <ellipse cx="220" cy="250" rx="130" ry="50" fill="#FBE1DE" opacity="0.9"/>
+      <ellipse cx="350" cy="300" rx="90"  ry="55" fill="#7E9FD8" opacity="0.55"/>
+      <ellipse cx="70"  cy="340" rx="110" ry="50" fill="#F4B7C5" opacity="0.85"/>
+      <ellipse cx="250" cy="390" rx="120" ry="44" fill="#FFF4EF" opacity="0.85"/>
+      <ellipse cx="60"  cy="460" rx="90"  ry="40" fill="#9B8FCB" opacity="0.5"/>
+      <ellipse cx="330" cy="470" rx="110" ry="44" fill="#F7C4CE" opacity="0.8"/>
+      <ellipse cx="170" cy="540" rx="140" ry="42" fill="#FFFFFF" opacity="0.7"/>
+      <ellipse cx="320" cy="600" rx="110" ry="40" fill="#BFE6EE" opacity="0.9"/>
+      <ellipse cx="70"  cy="630" rx="110" ry="38" fill="#8FD4DA" opacity="0.8"/>
+    </g>
+    <g stroke="#FFFFFF" stroke-linecap="round" opacity="0.6">
+      <line x1="40"  y1="110" x2="120" y2="80"  stroke-width="0.8"/>
+      <line x1="250" y1="40"  x2="340" y2="12"  stroke-width="0.8"/>
+      <line x1="180" y1="300" x2="290" y2="260" stroke-width="0.7"/>
+      <line x1="20"  y1="520" x2="110" y2="488" stroke-width="0.7"/>
+      <line x1="260" y1="660" x2="380" y2="616" stroke-width="0.8"/>
+    </g>
+    <g fill="#FFFFFF" opacity="0.85">
+      <path d="M120,80 Q120,88 128,88 Q120,88 120,96 Q120,88 112,88 Q120,88 120,80Z"/>
+      <path d="M340,12 Q340,18 346,18 Q340,18 340,24 Q340,18 334,18 Q340,18 340,12Z"/>
+      <path d="M290,260 Q290,266 296,266 Q290,266 290,272 Q290,266 284,266 Q290,266 290,260Z"/>
+      <path d="M60,420 Q60,425 65,425 Q60,425 60,430 Q60,425 55,425 Q60,425 60,420Z"/>
+    </g>
+    <g fill="none" stroke="#FFFFFF" stroke-width="1" opacity="0.7">
+      <path d="M300,215 L345,200 L318,222 Z M318,222 L322,232 L326,214"/>
+      <path d="M70,575 L108,566 L86,584 Z M86,584 L89,592 L92,578"/>
+      <path d="M345,200 C365,200 375,215 368,228" stroke-dasharray="3 4"/>
+    </g>
+    <g filter="url(#dapple)" opacity="0.9">
+      <rect x="-20" y="730" width="440" height="90" fill="#6FBFB0"/>
+      <circle cx="20"  cy="745" r="11" fill="#F6A04D"/><circle cx="60"  cy="758" r="10" fill="#F7D35C"/>
+      <circle cx="100" cy="742" r="9"  fill="#F28CA6"/><circle cx="140" cy="762" r="12" fill="#F6A04D"/>
+      <circle cx="180" cy="746" r="9"  fill="#FBE08A"/><circle cx="220" cy="764" r="11" fill="#E9718F"/>
+      <circle cx="260" cy="748" r="10" fill="#F6A04D"/><circle cx="300" cy="766" r="10" fill="#F7D35C"/>
+      <circle cx="340" cy="750" r="11" fill="#8A7CCB"/><circle cx="380" cy="762" r="10" fill="#F28CA6"/>
+      <circle cx="40"  cy="785" r="12" fill="#E9718F"/><circle cx="120" cy="790" r="11" fill="#6C8FD6"/>
+      <circle cx="200" cy="788" r="12" fill="#F7D35C"/><circle cx="280" cy="792" r="11" fill="#F28CA6"/>
+      <circle cx="360" cy="790" r="12" fill="#F6A04D"/>
+    </g>
+  </svg>
+
+  <main>
+    <header>
+      <h1 class="serif">This Week</h1>
+      <div class="weekRange serif" id="weekRange"></div>
+    </header>
+
+    <!-- the plane flies further as you tick tasks, and grows with each tier -->
+    <section class="card flight" aria-label="Weekly progress">
+      <div id="pct" class="serif">0%</div>
+      <div id="count"></div>
+      <svg id="flightSvg" viewBox="0 0 400 170" aria-hidden="true">
+        <path id="route" d="M24,150 C110,150 150,98 214,90 S318,60 352,40" fill="none"/>
+        <use href="#route" stroke="#FFFFFF" stroke-width="2" stroke-dasharray="3 7" opacity="0.65"/>
+        <path id="trail" d="M24,150 C110,150 150,98 214,90 S318,60 352,40" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round"/>
+        <circle cx="24" cy="150" r="5" fill="#FFFFFF"/>
+        <g transform="translate(366,32)">
+          <path class="twinkle" d="M0,-14 Q0,0 14,0 Q0,0 0,14 Q0,0 -14,0 Q0,0 0,-14Z" fill="#FFFFFF"/>
+        </g>
+        <g id="plane">
+          <g id="planeScale">
+            <polygon points="-28,-6 30,-14 -6,16" fill="#FFFFFF"/>
+            <polygon points="-28,-6 -10,4 30,-14" fill="#F4EEF6"/>
+            <polygon points="30,-14 -6,16 -10,4" fill="#D9CFE6"/>
+            <polygon points="-10,4 -6,16 -14,10" fill="#B3A8CE"/>
+          </g>
+        </g>
+      </svg>
+    </section>
+
+    <section class="card tiercard" aria-live="polite">
+      <div class="toast" id="toast">Tier up!</div>
+      <div id="badgeWrap"></div>
+      <div id="tierName" class="serif"></div>
+      <div id="hint"></div>
+    </section>
+
+    <section class="card">
+      <h2 class="serif">This week's tasks</h2>
+      <div class="muted" style="margin-bottom:6px">Each different task appears once. Tick it when it's done.</div>
+      <div id="plist"></div>
+    </section>
+
+    <section class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <h2 class="serif" style="margin:0">Last 8 weeks</h2>
+        <span class="seg2"><button type="button" id="sNew">Newest</button><button type="button" id="sBest">Best</button></span>
+      </div>
+      <div id="weeks" style="margin:8px 0 14px"></div>
+      <h2 class="serif">Top 10 done most</h2>
+      <div class="muted" style="margin-bottom:4px">Over the last 8 weeks.</div>
+      <div id="ranks"></div>
+    </section>
+  </main>
+</div>
 
 <datalist id="labels">
   <option value="Work"><option value="Office"><option value="Class"><option value="Commute">
@@ -149,7 +366,7 @@
   <label class="opt"><input type="radio" name="mode" value="sheet">
     <b>My own Google Sheet</b><br>The widget reads your sheet every 5 minutes. It never changes the sheet.</label>
 
-  <div class="box" id="sheetBox">
+  <div class="box2" id="sheetBox">
     <ol>
       <li id="tplStep">Get your own copy of the schedule sheet: <a id="tplLink" target="_blank" rel="noopener">make a copy</a>.</li>
       <li>In your sheet click <b>Share</b>, then set General access to <b>Anyone with the link</b> (Viewer).</li>
@@ -183,6 +400,8 @@ const OTHER_COLOR = '#E9E0EC';
 const EMPTY_COLOR = '#F4E9E0';
 // Size of the window the first time the app opens (you can resize it freely afterwards)
 const FIRST_WIDTH = 400, FIRST_HEIGHT = 760;
+// Colour behind the minimize / close buttons on each page
+const BAR_COLOR_SCHEDULE = '#E2DBDD', BAR_COLOR_PROGRESS = '#AD9FC9';
 
 // ===== SAVING ON THIS COMPUTER =====
 const store = {
@@ -193,7 +412,7 @@ const store = {
 function blank(slots) { return { slots: slots.slice(), cells: slots.map(() => DAYS.map(() => ({ label:'', task:'' }))) }; }
 function todayIndex() { return (new Date().getDay() + 6) % 7; }   // Monday = 0
 
-let settings = Object.assign({ mode:'guest', view:'day', sheetId:'', sheetTab:'Schedule' }, store.get('settings', {}));
+let settings = Object.assign({ mode:'guest', view:'day', page:'schedule', sheetId:'', sheetTab:'Schedule' }, store.get('settings', {}));
 let guest = store.get('guest', null) || blank(DEFAULT_SLOTS);     // what you typed in the widget
 let sheet = store.get('sheetCache', null);                        // last copy read from the Google Sheet
 let viewDay = todayIndex();
@@ -264,6 +483,7 @@ function draw() {
   document.getElementById('vWeek').className = settings.view === 'week' ? 'on' : '';
   markNow();
   showStatus();
+  renderProgress(false);      // keeps this week's checklist in step with the schedule
 }
 
 // Move the red box (does not rebuild the table, so typing is never interrupted)
@@ -275,11 +495,15 @@ function markNow() {
     document.querySelectorAll('#grid td[data-r="' + pos.slot + '"][data-d="' + pos.day + '"]').forEach(e => e.classList.add('now'));
 }
 
+let lastWeek = null;
 function tick() {
   const n = new Date();
   const text = DAYS[todayIndex()].slice(0, 3) + '  ' + n.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   document.getElementById('clock').textContent = text;
   document.getElementById('clock2').textContent = text;
+  if (weekId() !== lastWeek) {                  // a new week started (Monday 00:00): fresh checklist
+    lastWeek = weekId(); lastLevel = null; renderProgress(false);
+  }
   if (todayIndex() !== lastToday) {             // midnight passed
     lastToday = todayIndex();
     if (followToday) { viewDay = lastToday; draw(); return; }
@@ -301,6 +525,7 @@ document.getElementById('grid').addEventListener('input', e => {
   cell[inp.dataset.f] = inp.value;
   if (inp.dataset.f === 'label') { td.style.background = colorFor(inp.value); td.style.color = textFor(inp.value); }
   store.set('guest', guest);
+  if (inp.dataset.f === 'task') renderProgress(false);
 });
 // Clicking anywhere in a box (not only on the text) starts typing in it
 document.getElementById('grid').addEventListener('mousedown', e => {
@@ -415,6 +640,326 @@ document.getElementById('save').onclick = () => {
   draw(); loadSheet();
 };
 
+
+// =====================================================================
+// ===== PAGE 2: PROGRESS =====
+// =====================================================================
+
+// ----- The 9 tiers -----
+// A tier comes from how many DIFFERENT tasks you finished this week.
+// "min" = how many different tasks that tier needs.
+// The top tier (EPIC) needs at least 12 different tasks AND every task on the list ticked.
+// Tier names and badges stay secret: only the one you've reached is shown.
+const TIERS = [
+  { name:'Good',         min:1,  fill:'#DCEBE3', deep:'#BFD9CC', stroke:'#7FA898', ink:'#4D7A68' },
+  { name:'Great',        min:2,  fill:'#CFE6E6', deep:'#A9D2D4', stroke:'#5B9AA0', ink:'#2F6B72' },
+  { name:'Purrfect',     min:3,  fill:'#D3E3F6', deep:'#AFCBEE', stroke:'#6F95D0', ink:'#3D63A0' },
+  { name:'Excellent',    min:4,  fill:'#DCDAF5', deep:'#BDB8EC', stroke:'#8E86C4', ink:'#5A50A0' },
+  { name:'Amazing',      min:6,  fill:'#EADCF3', deep:'#D5BCEA', stroke:'#A07CC8', ink:'#6E4B99' },
+  { name:'Unbelievable', min:8,  fill:'#F9D2C2', deep:'#F3B39A', stroke:'#DC7A58', ink:'#A04A2B' },
+  { name:'Unreal',       min:10, fill:'#FCE3BC', deep:'#F8CB86', stroke:'#E0A04A', ink:'#9A6418' },
+  { name:'Insane',       min:11, fill:'#FFF3C4', deep:'#FBDB78', stroke:'#E8B53A', ink:'#8A6210' },
+  { name:'EPIC',         min:12, fill:'#F3E8FF', deep:'#D9C8F5', stroke:'#8E7CC3', ink:'#5A4A96' }
+];
+const TOP_LEVEL = TIERS.length;
+const KEEP_WEEKS = 8;                           // weeks kept for the ranking and the top 10
+const BIG_SIZE = i => Math.round(84 + i * 9);   // badges get bigger with each tier
+
+// 0 = not started yet, 1..9 = Good..EPIC
+function tierLevel(done, total) {
+  if (done === 0) return 0;
+  if (done >= TIERS[TOP_LEVEL - 1].min && done === total) return TOP_LEVEL;
+  let lv = 0;
+  for (let i = 0; i < TOP_LEVEL - 1; i++) if (done >= TIERS[i].min) lv = i + 1;
+  return lv;
+}
+
+// ----- Drawing the badges -----
+const f1 = n => n.toFixed(1);
+const pts = a => a.map(p => f1(p[0]) + ',' + f1(p[1])).join(' ');
+const ang = d => d * Math.PI / 180;
+function poly(n, r, rot = -90) { const a = []; for (let i = 0; i < n; i++) { const t = ang(rot + 360 * i / n); a.push([r * Math.cos(t), r * Math.sin(t)]); } return a; }
+function starP(n, ro, ri, rot = -90) { const a = []; for (let i = 0; i < 2 * n; i++) { const r = i % 2 ? ri : ro, t = ang(rot + 180 * i / n); a.push([r * Math.cos(t), r * Math.sin(t)]); } return a; }
+function wavy(n, r, amp) { const a = []; for (let i = 0; i < 180; i++) { const t = 2 * Math.PI * i / 180; const rr = r + amp * Math.cos(n * t); a.push([rr * Math.cos(t), rr * Math.sin(t)]); } return a; }
+const sparkle = (s, fill, cls = '', x = 0, y = 0) =>
+  `<g transform="translate(${x},${y})"><path class="${cls}" d="M0,${-s} Q0,0 ${s},0 Q0,0 0,${s} Q0,0 ${-s},0 Q0,0 0,${-s}Z" fill="${fill}"/></g>`;
+const star5 = (r, fill) => `<polygon points="${pts(starP(5, r, r * 0.45))}" fill="${fill}" stroke-linejoin="round"/>`;
+const shine = `<ellipse cx="-14" cy="-22" rx="17" ry="7" fill="#FFFFFF" opacity="0.5" transform="rotate(-28 -14 -22)"/>`;
+const miniPlane = c => `<g transform="scale(0.85)"><polygon points="-26,-4 26,-14 -4,14" fill="#FFFFFF" stroke="${c.ink}" stroke-width="2" stroke-linejoin="round"/>
+  <polygon points="26,-14 -4,14 -8,4" fill="${c.deep}" stroke="${c.ink}" stroke-width="2" stroke-linejoin="round"/></g>`;
+const shield = (s, fill, stroke, sw) => `<path transform="scale(${s})" d="M0,-48 L40,-34 L37,8 Q31,36 0,50 Q-31,36 -37,8 L-40,-34 Z" fill="${fill}" stroke="${stroke}" stroke-width="${sw / s}" stroke-linejoin="round"/>`;
+const crown = (y, fill, stroke) => `<g transform="translate(0,${y})">
+  <polygon points="-20,8 -20,-8 -10,1 0,-14 10,1 20,-8 20,8" fill="${fill}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>
+  <circle cx="-20" cy="-10" r="3" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/><circle cx="0" cy="-16" r="3" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>
+  <circle cx="20" cy="-10" r="3" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/></g>`;
+function laurel(r, fill, stroke) {
+  let s = '';
+  for (let k = 0; k < 7; k++) {
+    const t = 118 + k * 18;
+    for (const side of [1, -1]) {
+      const a = side === 1 ? t : 180 - t;
+      const x = r * Math.cos(ang(a)), y = r * Math.sin(ang(a));
+      s += `<ellipse cx="${f1(x)}" cy="${f1(y)}" rx="9" ry="4" fill="${fill}" stroke="${stroke}" stroke-width="1.2" transform="rotate(${f1(a + 90 + side * 28)} ${f1(x)} ${f1(y)})"/>`;
+    }
+  }
+  return s;
+}
+const wing = (fill, stroke) => `<path d="M-26,-14 C-58,-36 -74,-8 -62,8 C-72,12 -68,28 -52,26 C-58,36 -46,44 -30,32 Z" fill="${fill}" stroke="${stroke}" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M-34,-12 C-48,-14 -56,-4 -54,6 M-34,0 C-46,4 -50,14 -46,20" fill="none" stroke="${stroke}" stroke-width="1.5" opacity="0.6"/>`;
+
+let uid = 0;
+function badge(level, size) {
+  const c = TIERS[level - 1], id = 'b' + (uid++);
+  const g = `url(#g${id})`, iri = `url(#i${id})`;
+  const defs = `<defs>
+    <radialGradient id="g${id}" cx="35%" cy="30%" r="80%"><stop offset="0" stop-color="#FFFFFF"/><stop offset="0.5" stop-color="${c.fill}"/><stop offset="1" stop-color="${c.deep}"/></radialGradient>
+    <linearGradient id="i${id}" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F6B8D0"/><stop offset="0.3" stop-color="#C9B8F2"/><stop offset="0.55" stop-color="#B9D3F6"/>
+      <stop offset="0.8" stop-color="#A8E6DA"/><stop offset="1" stop-color="#FBE3A0"/>
+      <animateTransform attributeName="gradientTransform" type="rotate" from="0 0.5 0.5" to="360 0.5 0.5" dur="5s" repeatCount="indefinite"/>
+    </linearGradient></defs>`;
+  let body = '', cls = '', moves = false;
+  switch (level) {
+    case 1: body = `<circle r="40" fill="${g}" stroke="${c.stroke}" stroke-width="5"/>${shine}${sparkle(18, c.ink)}`; break;
+    case 2: body = `<circle r="44" fill="${g}" stroke="${c.stroke}" stroke-width="5"/><circle r="34" fill="none" stroke="${c.ink}" stroke-width="2" stroke-dasharray="3 5" opacity="0.6"/>${shine}${star5(19, c.ink)}`; break;
+    case 3: body = `<polygon points="${pts(poly(6, 47))}" fill="${g}" stroke="${c.stroke}" stroke-width="5" stroke-linejoin="round"/><polygon points="${pts(poly(6, 36))}" fill="none" stroke="#FFFFFF" stroke-width="2.5" opacity="0.85" stroke-linejoin="round"/>${shine}${star5(21, c.ink)}`; break;
+    case 4: body = `<polygon points="${pts(wavy(12, 44, 5))}" fill="${g}" stroke="${c.stroke}" stroke-width="4.5"/><circle r="31" fill="#FFFFFF" opacity="0.5"/>${shine}${miniPlane(c)}`; break;
+    case 5: body = `${shield(1, g, c.stroke, 5)}${shield(0.78, 'none', '#FFFFFF', 2.5)}${shine}${star5(20, c.ink)}${sparkle(6, c.ink, '', -22, 22)}${sparkle(6, c.ink, '', 22, 22)}`; break;
+    case 6: body = `${wing('#FFFFFF', c.stroke)}<g transform="scale(-1,1)">${wing('#FFFFFF', c.stroke)}</g>${shield(0.82, g, c.stroke, 5)}${shine}${star5(18, c.ink)}`; break;
+    case 7: // Unreal: spinning burst + twinkles (moves)
+      body = `<g class="spin"><polygon points="${pts(starP(8, 58, 42))}" fill="${g}" stroke="${c.stroke}" stroke-width="3.5" stroke-linejoin="round"/></g>
+              <circle r="32" fill="${g}" stroke="${c.stroke}" stroke-width="3.5"/>${shine}<polygon points="${pts(starP(4, 22, 6))}" fill="${c.ink}"/>
+              ${sparkle(7, '#FFFFFF', 'twinkle', 36, -40)}${sparkle(6, '#FFFFFF', 'twinkle', -42, 32)}${sparkle(5, '#FFFFFF', 'twinkle', 40, 36)}`;
+      cls = 'glow'; moves = true; break;
+    case 8: // Insane: sun rays spinning both ways + crown (moves)
+      body = `<g class="spin"><polygon points="${pts(starP(16, 64, 44))}" fill="#FFE39A" opacity="0.95"/></g>
+              <g class="spinR"><polygon points="${pts(starP(12, 58, 42, -75))}" fill="#FFFFFF" opacity="0.75"/></g>
+              <circle r="37" fill="${g}" stroke="${c.stroke}" stroke-width="4.5"/>${shine}${crown(-46, '#FFE39A', c.stroke)}
+              ${sparkle(20, '#FFFFFF')}<path d="M0,-20 Q0,0 20,0 Q0,0 0,20 Q0,0 -20,0 Q0,0 0,-20Z" fill="none" stroke="${c.ink}" stroke-width="2"/>
+              ${sparkle(7, '#FFFFFF', 'twinkle', 48, -46)}${sparkle(6, '#FFFFFF', 'twinkle', -52, 40)}`;
+      cls = 'glow'; moves = true; break;
+    case 9: // EPIC: rainbow diamond with laurels, rays and sparkles (moves)
+      body = `<g class="spin"><polygon points="${pts(starP(20, 66, 46))}" fill="${iri}" opacity="0.85"/></g>
+              ${laurel(52, '#E6D9FA', '#8E7CC3')}
+              <polygon points="-34,-12 34,-12 0,46" fill="${iri}" stroke="#7D6BB8" stroke-width="3" stroke-linejoin="round"/>
+              <polygon points="-34,-12 -18,-32 18,-32 34,-12" fill="${iri}" stroke="#7D6BB8" stroke-width="3" stroke-linejoin="round"/>
+              <polygon points="-34,-12 -18,-32 18,-32 34,-12" fill="#FFFFFF" opacity="0.35"/>
+              <path d="M-18,-32 L-9,-12 L0,-32 L9,-12 L18,-32 M-9,-12 L0,46 L9,-12" fill="none" stroke="#FFFFFF" stroke-width="2" opacity="0.85"/>
+              ${sparkle(9, '#FFFFFF', 'twinkle', -42, -44)}${sparkle(7, '#FFFFFF', 'twinkle', 46, -30)}
+              ${sparkle(8, '#FFFFFF', 'twinkle', 42, 42)}${sparkle(6, '#FFFFFF', 'twinkle', -46, 34)}`;
+      cls = 'glowP'; moves = true; break;
+  }
+  if (moves) body = `<g class="float">${body}</g>`;
+  return `<svg class="${cls}" width="${size}" height="${size}" viewBox="-70 -70 140 140" style="overflow:visible" role="img" aria-label="${c.name} badge">${defs}${body}</svg>`;
+}
+const EMPTY_BADGE = size => `<svg width="${size}" height="${size}" viewBox="-70 -70 140 140" aria-label="No badge yet"><circle r="44" fill="none" stroke="#A49FB0" stroke-width="5" stroke-dasharray="7 9"/></svg>`;
+
+// ----- Weeks (Monday to Sunday) -----
+function weekStart(weeksAgo = 0) {
+  const d = new Date(); d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) - 7 * weeksAgo);
+  return d;
+}
+function weekId(weeksAgo = 0) {      // e.g. "2026-11-16" = the Monday of that week
+  const d = weekStart(weeksAgo);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+// ----- This week's different tasks (like UNIQUE() in Sheets) -----
+// Reads only the wide task boxes, Monday to Sunday. Capital letters and extra spaces are ignored.
+function normKey(s) { return String(s).trim().replace(/\s+/g, ' ').toLowerCase(); }
+function weekTasks() {
+  const sch = current(), map = new Map();
+  DAYS.forEach((_, d) => sch.cells.forEach(row => {
+    const t = (row[d].task || '').trim();
+    if (!t) return;
+    const k = normKey(t);
+    if (!map.has(k)) map.set(k, { key: k, name: t.replace(/\s+/g, ' '), times: 0 });
+    map.get(k).times++;
+  }));
+  return [...map.values()];
+}
+
+// ----- Ticks and history, saved on this computer -----
+let ticks = store.get('ticks', {});        // { "2026-11-16": ["app", "statistik"] }
+let history = store.get('history', {});    // { "2026-11-09": { done:9, total:11, ticked:["APP", ...] } }
+function pruneOld(obj) { const oldest = weekId(KEEP_WEEKS - 1); Object.keys(obj).forEach(k => { if (k < oldest) delete obj[k]; }); }
+function tickedSet() { return new Set(ticks[weekId()] || []); }
+function setTicked(key, on) {
+  const w = weekId(), s = new Set(ticks[w] || []);
+  if (on) s.add(key); else s.delete(key);
+  ticks[w] = [...s]; pruneOld(ticks); store.set('ticks', ticks);
+}
+function weekStats() {
+  const tasks = weekTasks(), set = tickedSet();
+  const doneList = tasks.filter(t => set.has(t.key));
+  return { tasks, set, doneList, done: doneList.length, total: tasks.length };
+}
+function saveWeekRecord(st) {
+  if (!st.total) return;
+  history[weekId()] = { done: st.done, total: st.total, ticked: st.doneList.map(t => t.name) };
+  pruneOld(history); store.set('history', history);
+}
+
+// ----- The plane -----
+const route = document.getElementById('route'), trail = document.getElementById('trail');
+let planeP = 0, planeS = 0.75, anim = null;
+function placePlane(p, s) {
+  const LEN = route.getTotalLength();
+  const at = route.getPointAtLength(Math.max(0.5, p * LEN));
+  const before = route.getPointAtLength(Math.max(0, p * LEN - 2));
+  const angle = Math.atan2(at.y - before.y, at.x - before.x) * 180 / Math.PI;
+  document.getElementById('plane').setAttribute('transform', `translate(${f1(at.x)},${f1(at.y)}) rotate(${f1(angle)})`);
+  document.getElementById('planeScale').setAttribute('transform', `scale(${s.toFixed(3)})`);
+  trail.setAttribute('stroke-dasharray', `${f1(p * LEN)} ${f1(LEN)}`);
+}
+function flyTo(p, s) {
+  cancelAnimationFrame(anim);
+  const p0 = planeP, s0 = planeS, t0 = performance.now(), D = 900;
+  const step = now => {
+    const t = Math.min(1, (now - t0) / D), e = 1 - Math.pow(1 - t, 3);
+    planeP = p0 + (p - p0) * e; planeS = s0 + (s - s0) * e;
+    placePlane(planeP, planeS);
+    if (t < 1) anim = requestAnimationFrame(step);
+  };
+  anim = requestAnimationFrame(step);
+}
+
+// ----- Draw the whole Progress page -----
+let lastLevel = null, sortBest = false;
+function renderProgress(fromTick) {
+  const st = weekStats();
+  saveWeekRecord(st);                                   // always keep this week's record up to date
+  if (settings.page !== 'progress') return;             // only draw when the page is showing
+
+  // week dates
+  const mon = weekStart(0), sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  const fd = d => d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+  document.getElementById('weekRange').textContent = fd(mon) + '  –  ' + fd(sun);
+
+  // percentage + plane
+  const p = st.total ? st.done / st.total : 0;
+  const level = tierLevel(st.done, st.total);
+  document.getElementById('pct').textContent = Math.round(p * 100) + '%';
+  document.getElementById('count').textContent = st.done + ' of ' + st.total + ' task' + (st.total === 1 ? '' : 's');
+  flyTo(p, 0.75 + level * 0.085);
+
+  // badge + tier name (only the one you've reached)
+  const wrap = document.getElementById('badgeWrap'), nameEl = document.getElementById('tierName');
+  if (level !== lastLevel) {
+    if (level === 0) {
+      wrap.innerHTML = EMPTY_BADGE(80);
+      nameEl.textContent = 'Not started'; nameEl.style.fontSize = '22px'; nameEl.style.color = '#8A93A0'; nameEl.className = 'serif';
+    } else {
+      const c = TIERS[level - 1];
+      wrap.innerHTML = badge(level, BIG_SIZE(level - 1));
+      nameEl.textContent = c.name;
+      nameEl.style.fontSize = (24 + (level - 1) * 2.4) + 'px';
+      nameEl.style.color = c.ink;
+      nameEl.className = 'serif' + (level === TOP_LEVEL ? ' epic' : '');
+      if (fromTick && lastLevel !== null && level > lastLevel) {
+        wrap.firstChild.classList.add('pop');
+        const t = document.getElementById('toast');
+        t.textContent = level === TOP_LEVEL ? 'EPIC week!' : 'Tier up!';
+        t.classList.remove('show'); void t.offsetWidth; t.classList.add('show');
+      }
+    }
+    lastLevel = level;
+  }
+
+  // what's needed for the next tier (its name stays a secret)
+  const topMin = TIERS[TOP_LEVEL - 1].min;
+  let hint;
+  if (!st.total) hint = 'Add tasks to this week\'s schedule to start.';
+  else if (level === TOP_LEVEL) hint = 'Every task done. See you next week!';
+  else if (level < TOP_LEVEL - 1) {
+    const need = TIERS[level].min - st.done;
+    hint = `${need} more different task${need > 1 ? 's' : ''} to unlock the next tier`;
+  }
+  else if (st.total >= topMin) hint = `Finish the last ${st.total - st.done} task${st.total - st.done > 1 ? 's' : ''} to unlock the final tier`;
+  else hint = `The final tier needs at least ${topMin} different tasks in a week`;
+  document.getElementById('hint').textContent = hint;
+
+  // checklist
+  const list = document.getElementById('plist');
+  const scroller = document.getElementById('pageProgress'), keepScroll = scroller.scrollTop;
+  const focusKey = fromTick && document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.k : null;
+  list.innerHTML = st.total ? st.tasks.map(t =>
+    `<label class="task"><input type="checkbox" data-k="${esc(t.key)}" ${st.set.has(t.key) ? 'checked' : ''}><span class="box"></span>` +
+    `<span class="name">${esc(t.name)}</span>${t.times > 1 ? `<span class="times">&times;${t.times}</span>` : ''}</label>`).join('')
+    : `<div class="muted">No tasks this week yet. ${settings.mode === 'sheet' ? 'Add tasks to the task columns of your Google Sheet.' : 'Type tasks in the wide boxes on the Schedule page.'}</div>`;
+  if (focusKey != null) { const el = [...list.querySelectorAll('input')].find(i => i.dataset.k === focusKey); if (el) el.focus({ preventScroll: true }); }
+  scroller.scrollTop = keepScroll;
+
+  drawWeeks(st);
+  drawTop(st);
+}
+
+document.getElementById('plist').addEventListener('change', e => {
+  const k = e.target.dataset.k;
+  if (k == null) return;
+  setTicked(k, e.target.checked);
+  renderProgress(true);
+});
+
+// ----- Last 8 weeks ranking -----
+function drawWeeks(st) {
+  const rows = [];
+  for (let a = 0; a < KEEP_WEEKS; a++) {
+    const r = a === 0 ? { done: st.done, total: st.total } : history[weekId(a)];
+    if (r && r.total) rows.push({ ago: a, done: r.done, total: r.total, level: tierLevel(r.done, r.total) });
+  }
+  if (sortBest) rows.sort((x, y) => y.level - x.level || y.done - x.done || x.ago - y.ago);
+  let html = rows.map((r, k) => {
+    const c = r.level ? TIERS[r.level - 1] : null;
+    const when = r.ago === 0 ? 'This week (so far)' : r.ago === 1 ? 'Last week'
+               : 'Week of ' + weekStart(r.ago).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+    const pct = r.total ? Math.round(r.done / r.total * 100) : 0;
+    return `<div class="wk ${r.ago === 0 ? 'thisweek' : ''}">${sortBest ? `<span class="pos">${k + 1}</span>` : ''}${r.level ? badge(r.level, 34) : EMPTY_BADGE(34)}
+      <div><div class="tier serif" style="color:${c ? c.ink : '#8A93A0'}">${c ? c.name : 'Not started'}</div><div class="when">${when}</div></div>
+      <div class="right">${r.done} of ${r.total} tasks<br>${pct}%</div></div>`;
+  }).join('');
+  if (rows.length <= 1) html += `<div class="muted" style="margin-top:6px">Past weeks appear here as the weeks go by. Only the last ${KEEP_WEEKS} weeks are kept.</div>`;
+  document.getElementById('weeks').innerHTML = html;
+  document.getElementById('sBest').classList.toggle('on', sortBest);
+  document.getElementById('sNew').classList.toggle('on', !sortBest);
+}
+document.getElementById('sNew').onclick  = () => { sortBest = false; renderProgress(false); };
+document.getElementById('sBest').onclick = () => { sortBest = true;  renderProgress(false); };
+
+// ----- Top 10 tasks done most (last 8 weeks) -----
+function drawTop(st) {
+  const counts = new Map();
+  for (let a = 0; a < KEEP_WEEKS; a++) {
+    const names = a === 0 ? st.doneList.map(t => t.name) : ((history[weekId(a)] || {}).ticked || []);
+    names.forEach(n => {
+      const k = normKey(n), e = counts.get(k) || { name: n, w: 0 };
+      e.w++; counts.set(k, e);
+    });
+  }
+  const top = [...counts.values()].sort((x, y) => y.w - x.w || x.name.localeCompare(y.name)).slice(0, 10);
+  document.getElementById('ranks').innerHTML = top.length ? top.map((t, k) =>
+    `<div class="rank"><span class="n">${k + 1}</span><span class="nm">${esc(t.name)}</span>` +
+    `<span class="bar2" style="width:${Math.round(t.w / KEEP_WEEKS * 120)}px"></span><span class="muted">${t.w} wk</span></div>`).join('')
+    : '<div class="muted">Tick tasks to start your top 10.</div>';
+}
+
+// ----- Switching between the two pages -----
+function showPage(page) {
+  settings.page = page; store.set('settings', settings);
+  const prog = page === 'progress';
+  document.getElementById('pageSchedule').hidden = prog;
+  document.getElementById('pageProgress').hidden = !prog;
+  document.getElementById('tabSchedule').className = prog ? '' : 'on';
+  document.getElementById('tabProgress').className = prog ? 'on' : '';
+  document.body.classList.toggle('pg-progress', prog);
+  document.querySelector('meta[name=theme-color]').setAttribute('content', prog ? BAR_COLOR_PROGRESS : BAR_COLOR_SCHEDULE);
+  if (prog) { lastLevel = null; renderProgress(false); }
+}
+document.getElementById('tabSchedule').onclick = () => showPage('schedule');
+document.getElementById('tabProgress').onclick = () => showPage('progress');
+
+
 // ===== APP WINDOW (when installed in Edge) =====
 // "No title bar" mode: the page fills the whole window and only the
 // minimize / maximize / close buttons float on top.
@@ -438,6 +983,8 @@ if (isApp && !store.get('sized', false)) {
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 
 // ===== START =====
+lastWeek = weekId();
+showPage(settings.page === 'progress' ? 'progress' : 'schedule');
 draw(); tick(); loadSheet();
 setInterval(tick, 30 * 1000);                // move the red box every 30 seconds
 setInterval(loadSheet, 5 * 60 * 1000);       // re-read the Google Sheet every 5 minutes
