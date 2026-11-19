@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Schedule</title>
+<!-- These lines make Edge treat this page as an installable app -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<!-- Colour behind the minimize / close buttons. Keep it the same as theme_color in manifest.webmanifest -->
+<meta name="theme-color" content="#E2DBDD">
+<meta name="color-scheme" content="light">
+<!-- Elegant title font. If you're offline it quietly falls back to a font already on Windows. -->
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  html, body { height:100%; }
+  body {
+    margin:0; color:#4A4A55; font-family:"Segoe UI",Arial,sans-serif; font-size:13px;
+    display:flex; flex-direction:column; overflow:hidden;
+    /* soft watercolour background */
+    background:
+      radial-gradient(ellipse at 12% 18%, rgba(205,232,236,0.90), transparent 45%),
+      radial-gradient(ellipse at 62% 6%,  rgba(248,214,196,0.85), transparent 40%),
+      radial-gradient(ellipse at 94% 12%, rgba(214,212,220,0.90), transparent 38%),
+      radial-gradient(ellipse at 4% 78%,  rgba(246,222,214,0.80), transparent 40%),
+      radial-gradient(ellipse at 86% 96%, rgba(150,208,204,0.90), transparent 45%),
+      radial-gradient(ellipse at 40% 100%,rgba(190,220,214,0.80), transparent 45%),
+      #F3EEEA;
+  }
+  .serif { font-family:"Cormorant Garamond","Palatino Linotype","Book Antiqua",Georgia,serif; }
+
+  /* ---- strip at the very top, used only when the app has no title bar ----
+     You can drag the window by this strip (and by the big title). */
+  .dragbar { display:none; }
+  body.wco .dragbar {
+    display:flex; align-items:center; box-sizing:border-box;
+    height:env(titlebar-area-height, 33px); width:env(titlebar-area-width, 100%);
+    padding-left:calc(env(titlebar-area-x, 0px) + 14px);
+    font-size:15px; font-weight:600; color:#6F8794; white-space:nowrap;
+    app-region:drag; -webkit-app-region:drag;
+  }
+  body.wco .row.title { app-region:drag; -webkit-app-region:drag; }
+  body.wco .row.title #clock { display:none; }
+  body.wco .bar { padding-top:0; }
+  button, input, a, label { app-region:no-drag; -webkit-app-region:no-drag; }
+
+  /* ---- top bar ---- */
+  .bar { padding:10px 12px 8px; }
+  .row { display:flex; align-items:center; gap:8px; }
+  .row + .row { margin-top:6px; }
+  h1 { margin:0; flex:1; min-width:0; font-weight:500; font-size:28px; letter-spacing:0.5px; color:#5B8399;
+       white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #clock { font-size:16px; font-weight:600; color:#6F8794; white-space:nowrap; }
+  .spacer { flex:1; }
+  button { font:inherit; color:#3F6B82; background:#F4E9E0; border:2px solid #A49FB0; border-radius:6px;
+           padding:3px 9px; cursor:pointer; }
+  button:hover { background:#FBF3EC; }
+  button:focus-visible, input:focus-visible { outline:2px solid #5B8399; outline-offset:1px; }
+  button.on { background:#5B8399; color:#fff; }
+  .seg { display:flex; }
+  .seg button { border-radius:0; }
+  .seg button:first-child { border-radius:6px 0 0 6px; border-right:0; }
+  .seg button:last-child  { border-radius:0 6px 6px 0; }
+
+  /* ---- table ---- */
+  .scroll { flex:1; min-height:0; overflow:auto; padding:0 12px; }
+  table { width:100%; height:100%; border-collapse:collapse; table-layout:fixed; border:4px solid #A49FB0; }
+  table.week { min-width:900px; }
+  col.c-time { width:58px; }
+  table.day  col.c-label { width:86px; }
+  table.week col.c-label { width:5.6%; }
+  /* every row has a set height, so extra space is shared by all rows instead of stretching the header */
+  th { height:34px; background:#BCD9D9; color:#3F6B82; padding:0; border:2px solid #A49FB0;
+       font-family:"Cormorant Garamond","Palatino Linotype","Book Antiqua",Georgia,serif;
+       font-weight:600; font-size:19px; letter-spacing:0.5px; }
+  th.today-head { background:#5B8399; color:#fff; }
+  td { height:24px; background:#F4E9E0; border-bottom:2px solid #A49FB0; padding:0 7px;
+       overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  td.time  { background:#BCD9D9; color:#3F6B82; font-weight:600; text-align:center; border-right:2px solid #A49FB0;
+             font-family:"Cormorant Garamond","Palatino Linotype",Georgia,serif; font-size:16px; padding:0; }
+  td.label { text-align:center; padding:0 3px; border-right:1px solid rgba(164,159,176,0.55); }
+  td.task  { border-right:2px solid #A49FB0; }
+  td input { width:100%; height:100%; box-sizing:border-box; border:0; margin:0; padding:0; background:transparent;
+             font:inherit; color:inherit; text-overflow:ellipsis; outline:none; }
+  td.label input { text-align:center; }
+  td:focus-within { box-shadow: inset 0 0 0 2px #5B8399; }
+
+  .now { animation:pulse 2.5s ease-in-out infinite; }
+  @keyframes pulse {
+    0%,100% { box-shadow: inset 0 0 0 2px rgba(220,38,38,0.25); background-color: rgba(254,226,226,0.35); }
+    50%     { box-shadow: inset 0 0 0 3px rgba(220,38,38,0.95); background-color: rgba(252,165,165,0.85); }
+  }
+
+  #status { padding:6px 14px 8px; font-size:12px; color:#5F7480; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* ---- settings panel ---- */
+  #panel { position:fixed; inset:0; background:rgba(243,238,234,0.97); overflow:auto; padding:16px 18px; display:none; }
+  #panel.open { display:block; }
+  body.wco #panel { padding-top:calc(env(titlebar-area-height, 33px) + 10px); }
+  #panel h2 { margin:0 0 10px; font-weight:600; font-size:24px; color:#5B8399; }
+  #panel label.opt { display:block; margin:8px 0; padding:8px 10px; background:#F4E9E0; border:2px solid #A49FB0; border-radius:8px; cursor:pointer; }
+  #panel label.opt b { color:#3F6B82; }
+  #panel .box { margin:8px 0 0 4px; }
+  #panel ol { margin:6px 0 8px; padding-left:20px; line-height:1.5; }
+  #panel input[type=text] { width:100%; box-sizing:border-box; font:inherit; padding:6px 8px; margin:3px 0 8px;
+                            border:2px solid #A49FB0; border-radius:6px; background:#fff; color:#4A4A55; }
+  #panelMsg { margin:8px 0; color:#B4232A; min-height:1.2em; }
+  a { color:#3F6B82; }
+</style>
+</head>
+<body>
+
+<div class="dragbar serif" id="clock2"></div>
+
+<div class="bar">
+  <div class="row title">
+    <h1 class="serif" id="title">Schedule</h1>
+    <div class="serif" id="clock"></div>
+  </div>
+  <div class="row">
+    <span id="dayNav" class="row">
+      <button id="prev" title="Previous day" aria-label="Previous day">&#8249;</button>
+      <button id="today">Today</button>
+      <button id="next" title="Next day" aria-label="Next day">&#8250;</button>
+    </span>
+    <span class="spacer"></span>
+    <span class="seg">
+      <button id="vDay">Day</button><button id="vWeek">Week</button>
+    </span>
+    <button id="gear" title="Settings" aria-label="Settings">&#9881;</button>
+  </div>
+</div>
+
+<div class="scroll"><table id="grid"></table></div>
+<div id="status"></div>
+
+<datalist id="labels">
+  <option value="Work"><option value="Office"><option value="Class"><option value="Commute">
+  <option value="Prep"><option value="Rest"><option value="Free"><option value="Wake up">
+</datalist>
+
+<!-- Settings -->
+<div id="panel">
+  <h2 class="serif">Where does the schedule come from?</h2>
+
+  <label class="opt"><input type="radio" name="mode" value="guest">
+    <b>Type it here</b><br>Click any box and type. It is saved on this computer only.</label>
+
+  <label class="opt"><input type="radio" name="mode" value="sheet">
+    <b>My own Google Sheet</b><br>The widget reads your sheet every 5 minutes. It never changes the sheet.</label>
+
+  <div class="box" id="sheetBox">
+    <ol>
+      <li id="tplStep">Get your own copy of the schedule sheet: <a id="tplLink" target="_blank" rel="noopener">make a copy</a>.</li>
+      <li>In your sheet click <b>Share</b>, then set General access to <b>Anyone with the link</b> (Viewer).</li>
+      <li>Copy the sheet's link from the address bar and paste it here.</li>
+    </ol>
+    Sheet link
+    <input type="text" id="sheetLink" placeholder="https://docs.google.com/spreadsheets/d/...">
+    Tab name
+    <input type="text" id="sheetTab" placeholder="Schedule">
+  </div>
+
+  <div id="panelMsg"></div>
+  <button id="save" class="on">Save</button>
+  <button id="cancel">Cancel</button>
+</div>
+
+<script>
+// ===== SETTINGS =====
+// Optional: link to a blank schedule sheet that people can copy.
+// Leave empty ('') and the "make a copy" step is simply hidden.
+const TEMPLATE_LINK = '';
+
+const DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+// Time rows used when typing in the widget (the Google Sheet mode uses the times in the sheet)
+const DEFAULT_SLOTS = ['05:00','06:00','07:00','08:00','09:00','10:00','11:00','12:00','13:00',
+                       '14:00','15:00','16:00','17:00','18:00','19:00','20:00','21:00'];
+// Colours for each label (not case sensitive). Any other label gets OTHER_COLOR.
+const COLORS = { 'office':'#C9E0E0', 'work':'#C9E0E0', 'commute':'#DDD9E3', 'class':'#5B8399', 'prep':'#F6D5C3',
+                 'wake up':'#FBF3EC', 'rest':'#D5E6DA', 'free':'#F8ECC9' };
+const OTHER_COLOR = '#E9E0EC';
+const EMPTY_COLOR = '#F4E9E0';
+// Size of the window the first time the app opens (you can resize it freely afterwards)
+const FIRST_WIDTH = 400, FIRST_HEIGHT = 760;
+
+// ===== SAVING ON THIS COMPUTER =====
+const store = {
+  get(k, def) { try { const v = localStorage.getItem('schedWidget.' + k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } },
+  set(k, v)   { try { localStorage.setItem('schedWidget.' + k, JSON.stringify(v)); } catch (e) {} }
+};
+
+function blank(slots) { return { slots: slots.slice(), cells: slots.map(() => DAYS.map(() => ({ label:'', task:'' }))) }; }
+function todayIndex() { return (new Date().getDay() + 6) % 7; }   // Monday = 0
+
+let settings = Object.assign({ mode:'guest', view:'day', sheetId:'', sheetTab:'Schedule' }, store.get('settings', {}));
+let guest = store.get('guest', null) || blank(DEFAULT_SLOTS);     // what you typed in the widget
+let sheet = store.get('sheetCache', null);                        // last copy read from the Google Sheet
+let viewDay = todayIndex();
+let followToday = true;
+let lastToday = todayIndex();
+let sheetNote = '';
+
+function current() {
+  if (settings.mode === 'sheet') return sheet || blank(DEFAULT_SLOTS);
+  return guest;
+}
+
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function colorFor(label) { const k = label.trim().toLowerCase(); return k ? (COLORS[k] || OTHER_COLOR) : EMPTY_COLOR; }
+function textFor(label)  { return label.trim().toLowerCase() === 'class' ? '#fff' : '#4A4A55'; }
+
+// Which day column and time row is "now"
+function currentPos(slots) {
+  const now = new Date();
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const starts = slots.map(h => { const p = h.split(':').map(Number); return p[0] * 60 + p[1]; });
+  let slot = -1;
+  starts.forEach((s, i) => { if (mins >= s) slot = i; });
+  if (slot >= 0) {
+    const end = slot + 1 < starts.length ? starts[slot + 1] : starts[slot] + 60;   // last row lasts one hour
+    if (mins >= end) slot = -1;
+  }
+  return { day: todayIndex(), slot };
+}
+
+// Build the table (called when the data or the view changes)
+function draw() {
+  const sch = current();
+  const editable = settings.mode === 'guest';
+  const days = settings.view === 'week' ? DAYS.map((_, i) => i) : [viewDay];
+
+  let html = '<colgroup><col class="c-time">';
+  days.forEach(() => html += '<col class="c-label"><col>');
+  html += '</colgroup><tr><th>Time</th>';
+  if (settings.view === 'week') days.forEach(d => html += '<th colspan="2" data-d="' + d + '">' + DAYS[d] + '</th>');
+  else html += '<th>Label</th><th>Task</th>';
+  html += '</tr>';
+
+  sch.slots.forEach((h, r) => {
+    html += '<tr><td class="time">' + esc(h) + '</td>';
+    days.forEach(d => {
+      const c = sch.cells[r][d];
+      const st = 'background:' + colorFor(c.label) + ';color:' + textFor(c.label);
+      const at = ' data-r="' + r + '" data-d="' + d + '"';
+      if (editable) {
+        html += '<td class="label"' + at + ' style="' + st + '"><input list="labels" data-f="label" aria-label="Label, ' + DAYS[d] + ' ' + esc(h) + '" value="' + esc(c.label) + '"></td>';
+        html += '<td class="task"' + at + '><input data-f="task" aria-label="Task, ' + DAYS[d] + ' ' + esc(h) + '" value="' + esc(c.task) + '"></td>';
+      } else {
+        html += '<td class="label"' + at + ' style="' + st + '" title="' + esc(c.label) + '">' + esc(c.label) + '</td>';
+        html += '<td class="task"' + at + ' title="' + esc(c.task) + '">' + esc(c.task) + '</td>';
+      }
+    });
+    html += '</tr>';
+  });
+
+  const grid = document.getElementById('grid');
+  grid.className = settings.view;
+  grid.innerHTML = html;
+
+  document.getElementById('title').textContent = settings.view === 'week' ? 'Weekly Schedule' : DAYS[viewDay];
+  document.getElementById('dayNav').style.display = settings.view === 'week' ? 'none' : '';
+  document.getElementById('vDay').className  = settings.view === 'day'  ? 'on' : '';
+  document.getElementById('vWeek').className = settings.view === 'week' ? 'on' : '';
+  markNow();
+  showStatus();
+}
+
+// Move the red box (does not rebuild the table, so typing is never interrupted)
+function markNow() {
+  const pos = currentPos(current().slots);
+  document.querySelectorAll('#grid .now').forEach(e => e.classList.remove('now'));
+  document.querySelectorAll('#grid th[data-d]').forEach(e => e.classList.toggle('today-head', Number(e.dataset.d) === pos.day));
+  if (pos.slot >= 0)
+    document.querySelectorAll('#grid td[data-r="' + pos.slot + '"][data-d="' + pos.day + '"]').forEach(e => e.classList.add('now'));
+}
+
+function tick() {
+  const n = new Date();
+  const text = DAYS[todayIndex()].slice(0, 3) + '  ' + n.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  document.getElementById('clock').textContent = text;
+  document.getElementById('clock2').textContent = text;
+  if (todayIndex() !== lastToday) {             // midnight passed
+    lastToday = todayIndex();
+    if (followToday) { viewDay = lastToday; draw(); return; }
+  }
+  markNow();
+}
+
+function showStatus() {
+  document.getElementById('status').textContent = settings.mode === 'guest'
+    ? 'Click any box to type. Saved on this computer.'
+    : (sheetNote || 'Reading your Google Sheet...');
+}
+
+// ===== TYPING IN THE WIDGET =====
+document.getElementById('grid').addEventListener('input', e => {
+  const inp = e.target, td = inp.closest('td');
+  if (settings.mode !== 'guest' || !td || !inp.dataset.f) return;
+  const cell = guest.cells[Number(td.dataset.r)][Number(td.dataset.d)];
+  cell[inp.dataset.f] = inp.value;
+  if (inp.dataset.f === 'label') { td.style.background = colorFor(inp.value); td.style.color = textFor(inp.value); }
+  store.set('guest', guest);
+});
+// Clicking anywhere in a box (not only on the text) starts typing in it
+document.getElementById('grid').addEventListener('mousedown', e => {
+  const td = e.target.closest('td'); const inp = td && td.querySelector('input');
+  if (inp && e.target !== inp) { e.preventDefault(); inp.focus(); }
+});
+
+// ===== READING A GOOGLE SHEET (read only) =====
+function cellText(c) { return c ? String(c.f != null ? c.f : (c.v != null ? c.v : '')).trim() : ''; }
+
+function cellTime(c) {
+  if (!c) return null;
+  let h, m;
+  if (Array.isArray(c.v)) { h = c.v[0]; m = c.v[1]; }
+  else {
+    const s = String(c.f != null ? c.f : (c.v != null ? c.v : ''));
+    const t = s.match(/(\d{1,2})[:.](\d{2})/);
+    if (!t) return null;
+    h = Number(t[1]); m = Number(t[2]);
+    if (/pm/i.test(s) && h < 12) h += 12;
+    if (/am/i.test(s) && h === 12) h = 0;
+  }
+  if (!(h >= 0 && h < 24 && m >= 0 && m < 60)) return null;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+// Sheet layout: times in column A from row 3; then for each day a label column and a task column (B to O)
+function parseTable(table) {
+  const out = { slots: [], cells: [] };
+  (table.rows || []).forEach(row => {
+    const c = row.c || [];
+    const time = cellTime(c[0]);
+    if (!time) return;
+    out.slots.push(time);
+    out.cells.push(DAYS.map((_, d) => ({ label: cellText(c[1 + d * 2]), task: cellText(c[2 + d * 2]) })));
+  });
+  return out.slots.length ? out : null;
+}
+
+function loadSheet() {
+  if (settings.mode !== 'sheet' || !settings.sheetId) return;
+  const cb = '__schedCb' + Date.now();
+  const s = document.createElement('script');
+  let done = false;
+  const finish = (ok, why) => {
+    if (done) return; done = true;
+    clearTimeout(timer); s.remove(); window[cb] = function () {};
+    const t = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    if (ok) sheetNote = 'Google Sheet, updated ' + t;
+    else if (why === 'layout') sheetNote = 'Sheet found, but no times in column A from row 3.';
+    else sheetNote = (sheet ? 'Showing last saved copy. ' : '') + 'Can\'t read the sheet. Is it shared as "Anyone with the link"?';
+    showStatus();
+  };
+  window[cb] = resp => {
+    if (!resp || resp.status !== 'ok' || !resp.table) { finish(false); return; }
+    const parsed = parseTable(resp.table);
+    if (!parsed) { finish(false, 'layout'); return; }
+    sheet = parsed; store.set('sheetCache', sheet);
+    finish(true); draw();
+  };
+  s.onerror = () => finish(false);
+  s.onload  = () => finish(false);               // loaded but our function was never called
+  const timer = setTimeout(() => finish(false), 15000);
+  s.src = 'https://docs.google.com/spreadsheets/d/' + settings.sheetId +
+          '/gviz/tq?tqx=out:json;responseHandler:' + cb + '&headers=0&sheet=' +
+          encodeURIComponent(settings.sheetTab || 'Schedule') + '&range=A3:O60';
+  document.head.appendChild(s);
+}
+
+// ===== BUTTONS =====
+function setView(v) { settings.view = v; store.set('settings', settings); draw(); }
+document.getElementById('vDay').onclick  = () => setView('day');
+document.getElementById('vWeek').onclick = () => setView('week');
+function goDay(d) { viewDay = (d + 7) % 7; followToday = viewDay === todayIndex(); draw(); }
+document.getElementById('prev').onclick  = () => goDay(viewDay - 1);
+document.getElementById('next').onclick  = () => goDay(viewDay + 1);
+document.getElementById('today').onclick = () => goDay(todayIndex());
+
+// ===== SETTINGS PANEL =====
+const panel = document.getElementById('panel');
+function sheetIdFrom(text) { const m = String(text).match(/\/d\/([A-Za-z0-9_-]{20,})/); return m ? m[1] : ''; }
+function syncPanel() {
+  const mode = panel.querySelector('input[name=mode]:checked').value;
+  document.getElementById('sheetBox').style.display = mode === 'sheet' ? '' : 'none';
+}
+document.getElementById('gear').onclick = () => {
+  panel.querySelector('input[name=mode][value=' + settings.mode + ']').checked = true;
+  document.getElementById('sheetLink').value = settings.sheetId ? 'https://docs.google.com/spreadsheets/d/' + settings.sheetId + '/edit' : '';
+  document.getElementById('sheetTab').value = settings.sheetTab || 'Schedule';
+  const tpl = sheetIdFrom(TEMPLATE_LINK);
+  document.getElementById('tplStep').style.display = tpl ? '' : 'none';
+  if (tpl) document.getElementById('tplLink').href = 'https://docs.google.com/spreadsheets/d/' + tpl + '/copy';
+  document.getElementById('panelMsg').textContent = '';
+  syncPanel();
+  panel.classList.add('open');
+};
+panel.addEventListener('change', syncPanel);
+document.getElementById('cancel').onclick = () => panel.classList.remove('open');
+document.getElementById('save').onclick = () => {
+  const mode = panel.querySelector('input[name=mode]:checked').value;
+  if (mode === 'sheet') {
+    const id = sheetIdFrom(document.getElementById('sheetLink').value);
+    if (!id) { document.getElementById('panelMsg').textContent = 'That does not look like a Google Sheets link. Copy it from the address bar of your sheet.'; return; }
+    if (id !== settings.sheetId) { sheet = null; store.set('sheetCache', null); }
+    settings.sheetId = id;
+    settings.sheetTab = document.getElementById('sheetTab').value.trim() || 'Schedule';
+    sheetNote = '';
+  }
+  settings.mode = mode;
+  store.set('settings', settings);
+  panel.classList.remove('open');
+  draw(); loadSheet();
+};
+
+// ===== APP WINDOW (when installed in Edge) =====
+// "No title bar" mode: the page fills the whole window and only the
+// minimize / maximize / close buttons float on top.
+function updateTitleBarMode() {
+  const wco = navigator.windowControlsOverlay;
+  document.body.classList.toggle('wco', !!(wco && wco.visible));
+}
+if (navigator.windowControlsOverlay)
+  navigator.windowControlsOverlay.addEventListener('geometrychange', updateTitleBarMode);
+updateTitleBarMode();
+
+// The first time the installed app opens, make the window sticky-note sized
+const isApp = matchMedia('(display-mode: standalone)').matches ||
+              matchMedia('(display-mode: window-controls-overlay)').matches;
+if (isApp && !store.get('sized', false)) {
+  try { window.resizeTo(FIRST_WIDTH, FIRST_HEIGHT); } catch (e) {}
+  store.set('sized', true);
+}
+
+// Lets the app open even when there is no internet (shows the last saved copy)
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+// ===== START =====
+draw(); tick(); loadSheet();
+setInterval(tick, 30 * 1000);                // move the red box every 30 seconds
+setInterval(loadSheet, 5 * 60 * 1000);       // re-read the Google Sheet every 5 minutes
+</script>
+</body>
+</html>
