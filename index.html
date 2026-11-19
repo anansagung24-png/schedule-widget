@@ -146,16 +146,16 @@
   .glowP   { animation:glowP 2.2s ease-in-out infinite; }
   @keyframes glowP { 0%,100%{filter:drop-shadow(0 0 6px rgba(190,150,255,0.7));} 50%{filter:drop-shadow(0 0 18px rgba(120,210,230,1));} }
 
-  .task { display:flex; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px solid rgba(164,159,176,0.35); cursor:pointer; font-size:14px; position:relative; }
-  .task:last-child { border-bottom:0; }
-  .task input { position:absolute; opacity:0; width:1px; height:1px; }
+  .ptask { display:flex; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px solid rgba(164,159,176,0.35); cursor:pointer; font-size:14px; position:relative; }
+  .ptask:last-child { border-bottom:0; }
+  .ptask input { position:absolute; opacity:0; width:1px; height:1px; }
   .box { width:20px; height:20px; border:2px solid #A49FB0; border-radius:6px; background:#fff; flex:none;
          display:flex; align-items:center; justify-content:center; color:#fff; font-size:14px; }
-  .task input:checked + .box { background:#5B8399; border-color:#5B8399; }
-  .task input:checked + .box::after { content:"\2713"; }
-  .task input:focus-visible + .box { outline:2px solid #5B8399; outline-offset:2px; }
-  .task input:checked ~ .name { color:#8A93A0; text-decoration:line-through; }
-  .task .name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ptask input:checked + .box { background:#5B8399; border-color:#5B8399; }
+  .ptask input:checked + .box::after { content:"\2713"; }
+  .ptask input:focus-visible + .box { outline:2px solid #5B8399; outline-offset:2px; }
+  .ptask input:checked ~ .name { color:#8A93A0; text-decoration:line-through; }
+  .ptask .name { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .times { margin-left:auto; color:#9AA3AE; font-size:12px; }
 
   .seg2 { display:flex; }
@@ -885,7 +885,7 @@ function renderProgress(fromTick) {
   const scroller = document.getElementById('pageProgress'), keepScroll = scroller.scrollTop;
   const focusKey = fromTick && document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.k : null;
   list.innerHTML = st.total ? st.tasks.map(t =>
-    `<label class="task"><input type="checkbox" data-k="${esc(t.key)}" ${st.set.has(t.key) ? 'checked' : ''}><span class="box"></span>` +
+    `<label class="ptask"><input type="checkbox" data-k="${esc(t.key)}" ${st.set.has(t.key) ? 'checked' : ''}><span class="box"></span>` +
     `<span class="name">${esc(t.name)}</span>${t.times > 1 ? `<span class="times">&times;${t.times}</span>` : ''}</label>`).join('')
     : `<div class="muted">No tasks this week yet. ${settings.mode === 'sheet' ? 'Add tasks to the task columns of your Google Sheet.' : 'Type tasks in the wide boxes on the Schedule page.'}</div>`;
   if (focusKey != null) { const el = [...list.querySelectorAll('input')].find(i => i.dataset.k === focusKey); if (el) el.focus({ preventScroll: true }); }
