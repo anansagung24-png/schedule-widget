@@ -93,6 +93,9 @@
   td input { width:100%; height:100%; box-sizing:border-box; border:0; margin:0; padding:0; background:transparent;
              font:inherit; color:inherit; text-overflow:ellipsis; outline:none; }
   td.label input { text-align:center; }
+  /* a task that is ticked on the Progress page gets a green tick here */
+  td.task.done { background:#E1EFE4; color:#3D6B58; padding-left:20px; position:relative; }
+  td.task.done::before { content:"\2713"; position:absolute; left:6px; top:50%; transform:translateY(-50%); font-weight:700; color:#4D8A6E; }
   td:focus-within { box-shadow: inset 0 0 0 2px #5B8399; }
 
   .now { animation:pulse 2.5s ease-in-out infinite; }
@@ -482,6 +485,7 @@ function draw() {
   document.getElementById('vDay').className  = settings.view === 'day'  ? 'on' : '';
   document.getElementById('vWeek').className = settings.view === 'week' ? 'on' : '';
   markNow();
+  markDone();
   showStatus();
   renderProgress(false);      // keeps this week's checklist in step with the schedule
 }
@@ -525,7 +529,7 @@ document.getElementById('grid').addEventListener('input', e => {
   cell[inp.dataset.f] = inp.value;
   if (inp.dataset.f === 'label') { td.style.background = colorFor(inp.value); td.style.color = textFor(inp.value); }
   store.set('guest', guest);
-  if (inp.dataset.f === 'task') renderProgress(false);
+  if (inp.dataset.f === 'task') { renderProgress(false); markDone(); }
 });
 // Clicking anywhere in a box (not only on the text) starts typing in it
 document.getElementById('grid').addEventListener('mousedown', e => {
@@ -784,16 +788,33 @@ function weekTasks() {
 let ticks = store.get('ticks', {});        // { "2026-11-16": ["app", "statistik"] }
 let history = store.get('history', {});    // { "2026-11-09": { done:9, total:11, ticked:["APP", ...] } }
 function pruneOld(obj) { const oldest = weekId(KEEP_WEEKS - 1); Object.keys(obj).forEach(k => { if (k < oldest) delete obj[k]; }); }
-function tickedSet() { return new Set(ticks[weekId()] || []); }
-function setTicked(key, on) {
-  const w = weekId(), s = new Set(ticks[w] || []);
-  if (on) s.add(key); else s.delete(key);
-  ticks[w] = [...s]; pruneOld(ticks); store.set('ticks', ticks);
+// This week's ticks: { "statistik": "Statistik", ... } (the name is kept so a finished
+// task still counts even if you later remove it from the schedule)
+function weekTicks() {
+  let t = ticks[weekId()];
+  if (Array.isArray(t)) { const o = {}; t.forEach(k => o[k] = k); t = ticks[weekId()] = o; }   // older saved format
+  return t || {};
+}
+function tickedSet() { return new Set(Object.keys(weekTicks())); }
+function setTicked(key, on, name) {
+  const o = Object.assign({}, weekTicks());
+  if (on) o[key] = name || key; else delete o[key];
+  ticks[weekId()] = o; pruneOld(ticks); store.set('ticks', ticks);
 }
 function weekStats() {
-  const tasks = weekTasks(), set = tickedSet();
+  const tasks = weekTasks(), wt = weekTicks(), set = new Set(Object.keys(wt));
+  // finished tasks that are no longer in the schedule stay on the list as done
+  set.forEach(k => { if (!tasks.some(t => t.key === k)) tasks.push({ key: k, name: wt[k], times: 0, gone: true }); });
   const doneList = tasks.filter(t => set.has(t.key));
   return { tasks, set, doneList, done: doneList.length, total: tasks.length };
+}
+// Put a green tick on every schedule box whose task is ticked this week
+function markDone() {
+  const set = tickedSet();
+  document.querySelectorAll('#grid td.task').forEach(td => {
+    const inp = td.querySelector('input'), t = inp ? inp.value : td.textContent;
+    td.classList.toggle('done', t.trim() !== '' && set.has(normKey(t)));
+  });
 }
 function saveWeekRecord(st) {
   if (!st.total) return;
@@ -886,7 +907,7 @@ function renderProgress(fromTick) {
   const focusKey = fromTick && document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.k : null;
   list.innerHTML = st.total ? st.tasks.map(t =>
     `<label class="ptask"><input type="checkbox" data-k="${esc(t.key)}" ${st.set.has(t.key) ? 'checked' : ''}><span class="box"></span>` +
-    `<span class="name">${esc(t.name)}</span>${t.times > 1 ? `<span class="times">&times;${t.times}</span>` : ''}</label>`).join('')
+    `<span class="name">${esc(t.name)}</span>${t.gone ? '<span class="times">no longer in schedule</span>' : t.times > 1 ? `<span class="times">&times;${t.times}</span>` : ''}</label>`).join('')
     : `<div class="muted">No tasks this week yet. ${settings.mode === 'sheet' ? 'Add tasks to the task columns of your Google Sheet.' : 'Type tasks in the wide boxes on the Schedule page.'}</div>`;
   if (focusKey != null) { const el = [...list.querySelectorAll('input')].find(i => i.dataset.k === focusKey); if (el) el.focus({ preventScroll: true }); }
   scroller.scrollTop = keepScroll;
@@ -898,8 +919,10 @@ function renderProgress(fromTick) {
 document.getElementById('plist').addEventListener('change', e => {
   const k = e.target.dataset.k;
   if (k == null) return;
-  setTicked(k, e.target.checked);
+  const task = weekStats().tasks.find(t => t.key === k);
+  setTicked(k, e.target.checked, task ? task.name : k);
   renderProgress(true);
+  markDone();
 });
 
 // ----- Last 8 weeks ranking -----
